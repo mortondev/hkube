@@ -1,0 +1,7 @@
+hetzner_token: # set to your hcloud API token here (requires read/write access)
+cluster_name: example
+location: fsn1
+masters:
+  instance_type: cx11
+  instance_count: 1
+k3s_version: v1.24.4+k3s1
