@@ -113,6 +113,22 @@ func createServers(hclient *hcloud.Client, isMaster bool) []*hcloud.Server {
 		log.Printf("ERROR: retrieving fingerprint: %s\n", err)
 	}
 
+	placementGroup, _, err := hclient.PlacementGroup.GetByName(context.Background(), viper.GetString("cluster_name"))
+	if err != nil {
+		log.Printf("ERROR: retrieving placement group: %s\n", err)
+	}
+	if placementGroup == nil {
+		createRes, _, err := hclient.PlacementGroup.Create(context.Background(), hcloud.PlacementGroupCreateOpts{
+			Name: viper.GetString("cluster_name"),
+			Type: hcloud.PlacementGroupType("spread"),
+		})
+		if err != nil {
+			log.Printf("ERROR: creating placement group: %s\n", err)
+		} else {
+			placementGroup = createRes.PlacementGroup
+		}
+	}
+
 	cluster_name := viper.GetString("cluster_name")
 	location := viper.GetString("location")
 	userData := UserData{
@@ -175,14 +191,15 @@ func createServers(hclient *hcloud.Client, isMaster bool) []*hcloud.Server {
 		// Create server
 		log.Printf("Creating server %s...", serverName)
 		createRes, _, err := hclient.Server.Create(context.Background(), hcloud.ServerCreateOpts{
-			Name:       serverName,
-			Image:      &hcloud.Image{ID: image.ID},
-			ServerType: &hcloud.ServerType{ID: serverType.ID},
-			SSHKeys:    []*hcloud.SSHKey{{ID: sshkey.ID}},
-			Location:   &hcloud.Location{Name: location},
-			Labels:     map[string]string{"cluster": cluster_name, "role": "master"},
-			Networks:   []*hcloud.Network{{ID: network.ID}},
-			UserData:   cloudConfig,
+			Name:           serverName,
+			Image:          &hcloud.Image{ID: image.ID},
+			ServerType:     &hcloud.ServerType{ID: serverType.ID},
+			SSHKeys:        []*hcloud.SSHKey{{ID: sshkey.ID}},
+			Location:       &hcloud.Location{Name: location},
+			Labels:         map[string]string{"cluster": cluster_name, "role": "master"},
+			Networks:       []*hcloud.Network{{ID: network.ID}},
+			PlacementGroup: &hcloud.PlacementGroup{ID: placementGroup.ID},
+			UserData:       cloudConfig,
 		})
 
 		if err != nil {
